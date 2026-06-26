@@ -1,0 +1,26 @@
+# VS Code
+.vscode/browse.vc.db
+.vscode/ipch/
+.vscode/.cmaketools/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# C++ / CMake build outputs
+build/
+install/
+log/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+# OS files
+.DS_Store
+
+# Git backups
+**/.git_backup/
+
