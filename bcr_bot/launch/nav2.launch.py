@@ -10,7 +10,7 @@ def generate_launch_description():
     pkg_nav2_dir = get_package_share_directory('nav2_bringup')
     pkg_bcr = get_package_share_directory('bcr_bot')
 
-    use_sim_time = LaunchConfiguration('use_sim_time', default='True')
+    use_sim_time = LaunchConfiguration('use_sim_time', default='False')
     autostart = LaunchConfiguration('autostart', default='True')
 
     nav2_launch_cmd = IncludeLaunchDescription(
@@ -38,6 +38,7 @@ def generate_launch_description():
             )
         ]
     )
+    
     remapper_node = Node(
         package='bcr_bot',
         executable='remapper.py',
@@ -52,5 +53,4 @@ def generate_launch_description():
     ld.add_action(remapper_node)
 
     return ld
-
 
