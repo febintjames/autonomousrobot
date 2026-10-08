@@ -63,7 +63,7 @@ def generate_launch_description():
     ld.add_action(declare_autostart)
     ld.add_action(slam_toolbox_launch_cmd)
     ld.add_action(rviz_launch_cmd)
-    ld.add_action(static_transform_publisher_node)
+    # Note: slam_toolbox publishes map -> odom dynamically, so static_transform_publisher is not used.
 
     return ld
 

@@ -32,15 +32,16 @@ setup(
         ],
     },
     entry_points={
-        'console_scripts': ["febin=my_python_pkg.my_first_node:main",
-                        
-                            "pub_node=my_python_pkg.pub:main",
-                            "sub_node=my_python_pkg.sub:main",
-                            "lum=my_python_pkg.publisher:main",
-                            "sub=my_python_pkg.sub:main",
-                            "server_node=my_python_pkg.add_two_int:main",
-                            "client_node=my_python_pkg.client:main"
-                
+        'console_scripts': [
+            "febin=my_python_pkg.my_first_node:main",
+            "pub_node=my_python_pkg.pub:main",
+            "sub_node=my_python_pkg.sub:main",
+            "lum=my_python_pkg.publisher:main",
+            "sub=my_python_pkg.sub:main",
+            "server_node=my_python_pkg.add_two_int:main",
+            "client_node=my_python_pkg.client:main",
+            "cmd_vel_serial=my_python_pkg.cmd_vel_serial:main",
+            "esp32_driver=my_python_pkg.esp32_teleop_odometry_node:main"
         ],
     },
 )

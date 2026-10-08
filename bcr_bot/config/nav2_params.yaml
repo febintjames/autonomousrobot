@@ -89,17 +89,26 @@ controller_server:
       yaw_goal_tolerance: 0.25
       stateful: True
     FollowPath:
-      plugin: "nav2_rotation_shim_controller::RotationShimController"
-      primary_controller: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      angular_dist_threshold: 0.785
-      forward_sampling_distance: 0.5
-      rotate_to_heading_angular_vel: 1.8
-      max_angular_accel: 3.2
-      simulate_ahead_time: 1.0
-      rotate_to_goal_heading: false
-
-      # Primary controller params can be placed here below
-      # ...
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      desired_linear_vel: 0.18
+      lookahead_dist: 0.4
+      min_lookahead_dist: 0.3
+      max_lookahead_dist: 0.6
+      lookahead_time: 1.5
+      rotate_to_heading_angular_vel: 0.35
+      transform_tolerance: 0.2
+      use_velocity_scaled_lookahead_dist: false
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_fast_stop: 1.0
+      use_regulated_linear_velocity_scaling: true
+      use_cost_regulated_linear_velocity_scaling: true
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.05
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.785
+      max_angular_accel: 1.5
       
 local_costmap:
   local_costmap:
@@ -111,10 +120,10 @@ local_costmap:
       use_sim_time: False
       transform_tolerance: 1.0
       rolling_window: true
-      width: 3
-      height: 3
+      width: 2
+      height: 2
       resolution: 0.05
-      robot_radius: 0.22
+      robot_radius: 0.12
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"

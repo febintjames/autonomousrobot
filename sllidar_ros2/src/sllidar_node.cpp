@@ -309,7 +309,7 @@ public:
 
         LidarScanMode current_scan_mode;
         if (scan_mode.empty()) {
-            op_result = drv->startScan(false /* not force scan */, true /* use typical scan mode */, 0, &current_scan_mode);
+            op_result = drv->startScan(false /* not force scan */, false /* use normal/legacy scan mode */, 0, &current_scan_mode);
         } else {
             std::vector<LidarScanMode> allSupportedScanModes;
             op_result = drv->getAllSupportedScanModes(allSupportedScanModes);
