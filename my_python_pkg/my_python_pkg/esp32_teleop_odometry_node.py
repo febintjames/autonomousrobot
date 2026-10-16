@@ -163,9 +163,16 @@ class ESP32TeleopSubscriberNode(Node):
         v = msg.linear.x
         w = msg.angular.z
 
-        # Clamp max velocities for gentle, steady mapping
-        v = max(-self.max_linear_speed, min(self.max_linear_speed, v))
-        w = max(-self.max_angular_speed, min(self.max_angular_speed, w))
+        # Limit speed by scaling v and w together. Clamping them separately changes
+        # the turn radius (w / v), so the robot would drive a different arc than
+        # the one Nav2 planned and keep drifting off the path.
+        scale = 1.0
+        if abs(v) > self.max_linear_speed:
+            scale = min(scale, self.max_linear_speed / abs(v))
+        if abs(w) > self.max_angular_speed:
+            scale = min(scale, self.max_angular_speed / abs(w))
+        v *= scale
+        w *= scale
 
         # Differential kinematics:
         # v_l = v - (w * W / 2)

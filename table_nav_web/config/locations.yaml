@@ -1,0 +1,14 @@
+# Starting set of saved places. It is copied ONCE to ~/.ros/table_locations.yaml
+# the first time the web app runs; after that the web app edits that file.
+#
+# Easiest way to add a place: drive the robot to the spot (facing the way it
+# should stop), open the web page and press "Save current position".
+#
+# Units: x, y in metres in the map frame, yaw in radians (0 = map +X, 1.57 = +Y).
+# Read coordinates in RViz with "Publish Point" if you want to type them here.
+#
+# locations:
+#   home:   {x: 0.0, y: 0.0, yaw: 0.0}
+#   table1: {x: 2.5, y: 1.2, yaw: 1.57}
+#   table2: {x: 2.5, y: -1.0, yaw: -1.57}
+locations: {}

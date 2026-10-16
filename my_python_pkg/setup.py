@@ -41,7 +41,8 @@ setup(
             "server_node=my_python_pkg.add_two_int:main",
             "client_node=my_python_pkg.client:main",
             "cmd_vel_serial=my_python_pkg.cmd_vel_serial:main",
-            "esp32_driver=my_python_pkg.esp32_teleop_odometry_node:main"
+            "esp32_driver=my_python_pkg.esp32_teleop_odometry_node:main",
+            "odom_check=my_python_pkg.odom_check:main"
         ],
     },
 )

@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Robot Control</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --surface-2: #eceef2; --text: #15181e;
+    --muted: #5b6372; --border: #d8dce3; --accent: #2457d6; --accent-text: #ffffff;
+    --danger: #d42a2a; --danger-text: #ffffff; --ok: #157a3c; --warn: #a65a00;
+    --map-free: #ffffff; --map-occ: #1f2633; --map-unknown: #d3d7de;
+    --robot: #2457d6; --place: #c2410c; --pick: #7c3aed;
+    --radius: 14px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1015; --surface: #171a21; --surface-2: #20242d; --text: #e8eaef;
+      --muted: #9aa3b3; --border: #2b303b; --accent: #4c7df0; --accent-text: #ffffff;
+      --danger: #e5484d; --danger-text: #ffffff; --ok: #3dd68c; --warn: #f5a524;
+      --map-free: #262b36; --map-occ: #e6e8ec; --map-unknown: #12151b;
+      --robot: #6c9bff; --place: #fb8c3c; --pick: #b18cff;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 0 16px calc(96px + env(safe-area-inset-bottom));
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 16px 0 12px;
+  }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+  .badge {
+    font-size: 13px; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  }
+  .badge::before { content: "●"; margin-right: 6px; }
+  .badge.ok { color: var(--ok); }
+  .badge.bad { color: var(--danger); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px;
+  }
+  .status-title { font-size: 22px; font-weight: 650; margin: 0; }
+  .status-sub { color: var(--muted); margin: 4px 0 0; min-height: 1.45em; }
+  .status-title.ok { color: var(--ok); }
+  .status-title.bad { color: var(--danger); }
+  .pose { color: var(--muted); font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .banner {
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; font-size: 14px;
+    background: color-mix(in srgb, var(--warn) 14%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  }
+  .banner code { font-size: 13px; }
+  .places { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  button {
+    font: inherit; border-radius: 12px; border: 1px solid var(--border); cursor: pointer;
+    background: var(--surface-2); color: var(--text); padding: 10px 14px; min-height: 44px;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+  button.place-btn {
+    min-height: 64px; font-size: 17px; font-weight: 600; text-align: left;
+    background: var(--surface-2);
+  }
+  button.place-btn.active { outline: 3px solid var(--accent); outline-offset: -3px; }
+  button.small { min-height: 36px; padding: 6px 10px; font-size: 14px; }
+  button.danger-outline { color: var(--danger); }
+  .empty { color: var(--muted); margin: 0; }
+  #mapWrap { position: relative; }
+  canvas#map {
+    display: block; width: 100%; border-radius: 10px; background: var(--map-unknown);
+    touch-action: none; cursor: crosshair;
+  }
+  .map-hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .map-empty {
+    display: grid; place-items: center; min-height: 160px; color: var(--muted);
+    background: var(--surface-2); border-radius: 10px; text-align: center; padding: 16px;
+  }
+  .pick {
+    margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--surface-2);
+  }
+  .pick p { margin: 0 0 10px; font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=text] {
+    font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 10px; flex: 1 1 160px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); min-width: 0;
+  }
+  ul.list { list-style: none; margin: 12px 0 0; padding: 0; }
+  ul.list li {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 0; border-top: 1px solid var(--border);
+  }
+  ul.list .name { font-weight: 600; flex: 1 1 120px; }
+  ul.list .coords { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; flex: 1 1 140px; }
+  .stopbar {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(6px);
+    border-top: 1px solid var(--border);
+  }
+  .stopbar button {
+    display: block; width: 100%; max-width: 760px; margin: 0 auto; min-height: 60px;
+    background: var(--danger); color: var(--danger-text); border: 0; font-size: 20px; font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  #toast {
+    position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 10px 14px; border-radius: 10px;
+    font-size: 14px; max-width: calc(100% - 32px); opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+  }
+  #toast.show { opacity: 1; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Robot Control</h1>
+    <span id="conn" class="badge">Connecting…</span>
+  </header>
+
+  <div id="bannerNav2" class="banner" hidden>
+    Nav2 is not running. On the robot run <code>ros2 launch bcr_bot nav2.launch.py</code>.
+  </div>
+  <div id="bannerPose" class="banner" hidden>
+    The robot doesn't know where it is. Tap its real position on the map (drag to show which way
+    it faces) and choose <b>Robot is here</b>, or use <b>Robot is here</b> next to a saved place.
+  </div>
+
+  <section class="card" aria-live="polite">
+    <p id="statusTitle" class="status-title">—</p>
+    <p id="statusSub" class="status-sub"></p>
+    <div id="pose" class="pose"></div>
+  </section>
+
+  <section class="card">
+    <h2>Send robot to</h2>
+    <div id="places" class="places"></div>
+    <p id="placesEmpty" class="empty" hidden>
+      No saved places yet. Drive the robot to a table, then use <b>Save current position</b> below.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Map</h2>
+    <div id="mapWrap">
+      <canvas id="map" hidden></canvas>
+      <div id="mapEmpty" class="map-empty">Waiting for the map from Nav2 (/map)…</div>
+    </div>
+    <p class="map-hint">Tap a spot to select it. Drag from the spot to choose the direction the robot should face.</p>
+    <div id="pick" class="pick" hidden>
+      <p id="pickText"></p>
+      <div class="row">
+        <button id="pickGo" class="primary">Go here</button>
+        <button id="pickHere">Robot is here</button>
+        <button id="pickSave">Save as place…</button>
+        <button id="pickClear">Clear</button>
+      </div>
+      <div id="pickSaveRow" class="row" style="margin-top:10px" hidden>
+        <input id="pickName" type="text" placeholder="Name, e.g. table1" maxlength="32" autocomplete="off">
+        <button id="pickSaveOk" class="primary">Save</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Saved places</h2>
+    <div class="row">
+      <input id="saveName" type="text" placeholder="Name, e.g. table1" maxlength="32" autocomplete="off">
+      <button id="saveHere" class="primary">Save current position</button>
+    </div>
+    <ul id="placeList" class="list"></ul>
+  </section>
+</main>
+
+<div class="stopbar"><button id="stop">STOP</button></div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const ROBOT_RADIUS_M = 0.22;
+
+const app = {
+  status: null,
+  places: {},
+  map: null,          // decoded map + cached bitmap
+  mapVersion: null,
+  mapLoading: false,
+  pick: null,         // {x, y, yaw|null}
+  drag: null,
+  view: null,         // world <-> canvas transform for the last draw
+};
+
+// ---------------------------------------------------------------- API
+async function api(path, body) {
+  const opts = body === undefined ? {} : {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
+  };
+  const res = await fetch(path, opts);
+  let data = {};
+  try { data = await res.json(); } catch (_) { /* empty body */ }
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+async function act(path, body) {
+  try {
+    const r = await api(path, body);
+    if (r.message) toast(r.message);
+    if (r.locations) { app.places = r.locations; renderPlaces(); }
+    return true;
+  } catch (e) {
+    toast(e.message);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------- formatting
+const deg = (rad) => Math.round(rad * 180 / Math.PI);
+const fmtPose = (p) => `x ${p.x.toFixed(2)} m, y ${p.y.toFixed(2)} m, facing ${deg(p.yaw)}°`;
+function fmtEta(s) {
+  if (s == null || s <= 0) return "";
+  return s < 60 ? `about ${Math.round(s)} s` : `about ${Math.round(s / 60)} min`;
+}
+
+// ---------------------------------------------------------------- status
+function renderStatus() {
+  const s = app.status;
+  const title = $("#statusTitle"), sub = $("#statusSub");
+  title.className = "status-title";
+  $("#bannerNav2").hidden = s.nav2_ready;
+  $("#bannerPose").hidden = !s.nav2_ready || !!s.pose;
+  const n = s.nav;
+  switch (n.state) {
+    case "sending":
+      title.textContent = `Starting trip to ${n.target}…`;
+      sub.textContent = n.message || "";
+      break;
+    case "navigating": {
+      title.textContent = `Going to ${n.target}`;
+      const parts = [];
+      if (n.distance_remaining != null) parts.push(`${n.distance_remaining.toFixed(1)} m left`);
+      const eta = fmtEta(n.eta);
+      if (eta) parts.push(eta);
+      if (n.recoveries > 0) parts.push(`recovering (${n.recoveries})`);
+      if (n.message) parts.push(n.message);
+      sub.textContent = parts.join(" · ");
+      break;
+    }
+    case "arrived":
+      title.textContent = `Arrived at ${n.target}`;
+      title.classList.add("ok");
+      sub.textContent = "";
+      break;
+    case "canceled":
+      title.textContent = "Stopped";
+      sub.textContent = n.target ? `Trip to ${n.target} was cancelled.` : "";
+      break;
+    case "failed":
+      title.textContent = n.target ? `Could not reach ${n.target}` : "Navigation failed";
+      title.classList.add("bad");
+      sub.textContent = n.message || "";
+      break;
+    default:
+      title.textContent = "Ready";
+      sub.textContent = "Choose a place to send the robot.";
+  }
+  $("#pose").textContent = s.pose ? `Robot: ${fmtPose(s.pose)}` : "Robot position: unknown";
+  $("#saveHere").disabled = !s.pose;
+  const active = n.state === "sending" || n.state === "navigating" ? n.target : null;
+  document.querySelectorAll(".place-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.name === active);
+    b.disabled = !s.nav2_ready;
+  });
+  $("#pickGo").disabled = !s.nav2_ready;
+}
+
+function setOnline(ok) {
+  const c = $("#conn");
+  c.className = "badge " + (ok ? "ok" : "bad");
+  c.textContent = ok ? "Connected" : "No connection";
+}
+
+// ---------------------------------------------------------------- places
+function renderPlaces() {
+  const names = Object.keys(app.places).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+  const grid = $("#places"), list = $("#placeList");
+  grid.replaceChildren();
+  list.replaceChildren();
+  $("#placesEmpty").hidden = names.length > 0;
+  for (const name of names) {
+    const p = app.places[name];
+    const go = document.createElement("button");
+    go.className = "place-btn";
+    go.dataset.name = name;
+    go.textContent = name;
+    go.addEventListener("click", () => act("/api/goto", {name}));
+    grid.append(go);
+
+    const li = document.createElement("li");
+    const label = document.createElement("span");
+    label.className = "name";
+    label.textContent = name;
+    const coords = document.createElement("span");
+    coords.className = "coords";
+    coords.textContent = `${p.x.toFixed(2)}, ${p.y.toFixed(2)} · ${deg(p.yaw)}°`;
+    const here = document.createElement("button");
+    here.className = "small";
+    here.textContent = "Robot is here";
+    here.title = "Tell the robot it is standing at this place (sets the initial pose)";
+    here.addEventListener("click", () => act("/api/initial_pose", {name}));
+    const del = document.createElement("button");
+    del.className = "small danger-outline";
+    del.textContent = "Delete";
+    del.addEventListener("click", () => {
+      if (confirm(`Delete "${name}"?`)) act("/api/locations/delete", {name});
+    });
+    li.append(label, coords, here, del);
+    list.append(li);
+  }
+  if (app.status) renderStatus();
+  drawMap();
+}
+
+// ---------------------------------------------------------------- map
+function cssColor(name) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const m = /^#?([0-9a-f]{6})$/i.exec(v);
+  const n = m ? parseInt(m[1], 16) : 0x808080;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function buildBitmap(m) {
+  const free = cssColor("--map-free"), occ = cssColor("--map-occ"), unk = cssColor("--map-unknown");
+  const c = document.createElement("canvas");
+  c.width = m.width; c.height = m.height;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(m.width, m.height);
+  for (let row = 0; row < m.height; row++) {
+    const srcRow = m.height - 1 - row;      // grid row 0 is the bottom of the map
+    for (let col = 0; col < m.width; col++) {
+      const v = m.cells[srcRow * m.width + col];
+      const o = (row * m.width + col) * 4;
+      let rgb;
+      if (v === 255) rgb = unk;
+      else {
+        const t = Math.min(v, 100) / 100;
+        rgb = [0, 1, 2].map((i) => Math.round(free[i] + (occ[i] - free[i]) * t));
+      }
+      img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+
+function knownBounds(m) {
+  // Crop the (often huge) unknown border so the room fills the screen.
+  let c0 = m.width, c1 = -1, r0 = m.height, r1 = -1;
+  for (let srcRow = 0; srcRow < m.height; srcRow++) {
+    for (let col = 0; col < m.width; col++) {
+      if (m.cells[srcRow * m.width + col] !== 255) {
+        const row = m.height - 1 - srcRow;
+        if (col < c0) c0 = col; if (col > c1) c1 = col;
+        if (row < r0) r0 = row; if (row > r1) r1 = row;
+      }
+    }
+  }
+  if (c1 < 0) return {c0: 0, r0: 0, w: m.width, h: m.height};
+  const pad = Math.round(0.5 / m.resolution);
+  c0 = Math.max(0, c0 - pad); r0 = Math.max(0, r0 - pad);
+  c1 = Math.min(m.width - 1, c1 + pad); r1 = Math.min(m.height - 1, r1 + pad);
+  return {c0, r0, w: c1 - c0 + 1, h: r1 - r0 + 1};
+}
+
+async function loadMap(version) {
+  if (app.mapLoading) return;
+  app.mapLoading = true;
+  try {
+    const m = await api("/api/map");
+    const bin = atob(m.data);
+    m.cells = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) m.cells[i] = bin.charCodeAt(i);
+    m.crop = knownBounds(m);
+    m.bitmap = buildBitmap(m);
+    app.map = m;
+    app.mapVersion = version;
+    $("#map").hidden = false;
+    $("#mapEmpty").hidden = true;
+    drawMap();
+  } catch (e) {
+    /* map not published yet; retried on the next status poll */
+  } finally {
+    app.mapLoading = false;
+  }
+}
+
+function drawMap() {
+  const m = app.map, cv = $("#map");
+  if (!m || cv.hidden) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = cv.clientWidth;
+  const maxH = Math.max(240, window.innerHeight * 0.6);
+  const scale = Math.min(cssW / m.crop.w, maxH / m.crop.h);
+  const cssH = Math.round(m.crop.h * scale);
+  const offX = (cssW - m.crop.w * scale) / 2;
+  if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(cssH * dpr)) {
+    cv.width = Math.round(cssW * dpr);
+    cv.height = Math.round(cssH * dpr);
+    cv.style.height = cssH + "px";
+  }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(m.bitmap, m.crop.c0, m.crop.r0, m.crop.w, m.crop.h, offX, 0, m.crop.w * scale, m.crop.h * scale);
+
+  const view = {
+    toCanvas(x, y) {
+      const col = (x - m.origin.x) / m.resolution;
+      const row = m.height - (y - m.origin.y) / m.resolution;
+      return [offX + (col - m.crop.c0) * scale, (row - m.crop.r0) * scale];
+    },
+    toWorld(px, py) {
+      const col = (px - offX) / scale + m.crop.c0;
+      const row = py / scale + m.crop.r0;
+      return [m.origin.x + col * m.resolution, m.origin.y + (m.height - row) * m.resolution];
+    },
+    pxPerM: scale / m.resolution,
+  };
+  app.view = view;
+
+  const colors = {
+    robot: getComputedStyle(document.documentElement).getPropertyValue("--robot").trim(),
+    place: getComputedStyle(document.documentElement).getPropertyValue("--place").trim(),
+    pick: getComputedStyle(document.documentElement).getPropertyValue("--pick").trim(),
+  };
+  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+
+  for (const [name, p] of Object.entries(app.places)) {
+    const [cx, cy] = view.toCanvas(p.x, p.y);
+    drawHeading(ctx, cx, cy, p.yaw, 14, colors.place);
+    ctx.fillStyle = colors.place;
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillText(name, cx + 9, cy - 9);
+  }
+
+  if (app.pick) {
+    const [cx, cy] = view.toCanvas(app.pick.x, app.pick.y);
+    ctx.strokeStyle = colors.pick; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 8, 0, 2 * Math.PI); ctx.stroke();
+    if (app.pick.yaw != null) drawHeading(ctx, cx, cy, app.pick.yaw, 26, colors.pick);
+  }
+
+  const pose = app.status && app.status.pose;
+  if (pose) {
+    const [cx, cy] = view.toCanvas(pose.x, pose.y);
+    const r = Math.max(6, ROBOT_RADIUS_M * view.pxPerM);
+    ctx.fillStyle = colors.robot; ctx.globalAlpha = 0.25;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = colors.robot; ctx.lineWidth = 2;
+    ctx.stroke();
+    drawHeading(ctx, cx, cy, pose.yaw, r + 8, colors.robot);
+  }
+}
+
+function drawHeading(ctx, cx, cy, yaw, len, color) {
+  const ex = cx + Math.cos(yaw) * len, ey = cy - Math.sin(yaw) * len;  // canvas y points down
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+  const a = Math.atan2(ey - cy, ex - cx);
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - 7 * Math.cos(a - 0.5), ey - 7 * Math.sin(a - 0.5));
+  ctx.lineTo(ex - 7 * Math.cos(a + 0.5), ey - 7 * Math.sin(a + 0.5));
+  ctx.closePath(); ctx.fill();
+}
+
+function canvasPoint(e) {
+  const r = $("#map").getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
+function updatePickFromDrag() {
+  const d = app.drag, v = app.view;
+  const [x, y] = v.toWorld(d.x0, d.y0);
+  const dx = d.x1 - d.x0, dy = d.y1 - d.y0;
+  const yaw = Math.hypot(dx, dy) > 12 ? Math.atan2(-dy, dx) : null;
+  app.pick = {x, y, yaw};
+}
+
+function showPick() {
+  const p = app.pick;
+  $("#pick").hidden = !p;
+  $("#pickSaveRow").hidden = true;
+  if (!p) return;
+  const facing = p.yaw == null ? "any direction (drag to choose)" : `facing ${deg(p.yaw)}°`;
+  $("#pickText").textContent = `Selected x ${p.x.toFixed(2)} m, y ${p.y.toFixed(2)} m, ${facing}`;
+}
+
+function pickYaw() {
+  // Without a dragged direction: face the way the robot travels to get there.
+  const p = app.pick, pose = app.status && app.status.pose;
+  if (p.yaw != null) return p.yaw;
+  return pose ? Math.atan2(p.y - pose.y, p.x - pose.x) : 0;
+}
+
+const cv = $("#map");
+cv.addEventListener("pointerdown", (e) => {
+  if (!app.view) return;
+  cv.setPointerCapture(e.pointerId);
+  const [x, y] = canvasPoint(e);
+  app.drag = {x0: x, y0: y, x1: x, y1: y};
+  updatePickFromDrag();
+  drawMap();
+});
+cv.addEventListener("pointermove", (e) => {
+  if (!app.drag) return;
+  [app.drag.x1, app.drag.y1] = canvasPoint(e);
+  updatePickFromDrag();
+  drawMap();
+});
+const endDrag = () => {
+  if (!app.drag) return;
+  app.drag = null;
+  showPick();
+  drawMap();
+};
+cv.addEventListener("pointerup", endDrag);
+cv.addEventListener("pointercancel", endDrag);
+
+$("#pickGo").addEventListener("click", () => {
+  const p = app.pick;
+  act("/api/goto", {x: p.x, y: p.y, yaw: pickYaw(), label: "selected point"});
+});
+$("#pickHere").addEventListener("click", () => {
+  const p = app.pick;
+  act("/api/initial_pose", {x: p.x, y: p.y, yaw: p.yaw == null ? 0 : p.yaw});
+});
+$("#pickSave").addEventListener("click", () => {
+  $("#pickSaveRow").hidden = false;
+  $("#pickName").focus();
+});
+$("#pickSaveOk").addEventListener("click", async () => {
+  const p = app.pick;
+  const ok = await act("/api/locations", {name: $("#pickName").value.trim(), x: p.x, y: p.y, yaw: pickYaw()});
+  if (ok) { $("#pickName").value = ""; app.pick = null; showPick(); drawMap(); }
+});
+$("#pickClear").addEventListener("click", () => { app.pick = null; showPick(); drawMap(); });
+
+$("#saveHere").addEventListener("click", async () => {
+  const name = $("#saveName").value.trim();
+  if (!name) { toast("Type a name first, e.g. table1"); $("#saveName").focus(); return; }
+  if (await act("/api/locations", {name})) $("#saveName").value = "";
+});
+$("#stop").addEventListener("click", () => act("/api/cancel", {}));
+
+window.addEventListener("resize", drawMap);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (app.map) { app.map.bitmap = buildBitmap(app.map); drawMap(); }
+});
+
+// ---------------------------------------------------------------- polling
+async function poll() {
+  try {
+    app.status = await api("/api/status");
+    setOnline(true);
+    renderStatus();
+    if (app.status.map_version != null && app.status.map_version !== app.mapVersion) {
+      loadMap(app.status.map_version);
+    }
+    drawMap();
+  } catch (e) {
+    setOnline(false);
+  }
+  setTimeout(poll, 500);
+}
+
+(async function init() {
+  try {
+    app.places = (await api("/api/locations")).locations;
+  } catch (e) { /* shown by the connection badge */ }
+  renderPlaces();
+  poll();
+})();
+</script>
+</body>
+</html>
